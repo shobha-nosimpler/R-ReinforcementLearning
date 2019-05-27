@@ -1,0 +1,285 @@
+---
+title: "RL1-model-free-approach"
+author: "shobha mourya"
+date: "May 24, 2019"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Reinforcement Learning in R
+
+Reinforcement learning refers to a group of methods from artificial intelligence
+where an agent performs learning through trial and error.
+
+# Supervised Learning Vs Reinforcement Learning
+
+It differs from supervised learning, since RL requires no explicit labels; instead, the agent interacts continuously with its environment.
+
+That is, the agent starts in a specific state and then performs an action based on which it transitions to a new state and, depending on the outcome, receives a reward.
+
+# Best Policy
+
+Different strategies (e.g. Q-learning) have been proposed to maximize the 
+overall reward, resulting in a so-called policy, which defines the best possible 
+action in each state.
+
+Mathematically, this process can be formalized by a Markov decision process and 
+it has been implemented by packages in R; to perform reinforcement learning in R we use the ReinforcementLearning package.
+
+The package provides a remarkably flexible framework and is easily applied to a wide range of different problems.
+
+We demonstrate its use by drawing upon common examples from the literature
+(e.g. finding optimal game strategies).
+
+
+# Two R package approaches to Reinforcement Learning
+
+## MDPtoolbox package 
+
+
+* developed by ladine Chades, Guillaume Chapron, Marie-Josee, Frederick Garcia, and Regis Sabbadin
+* it is MDP approach to solving RL
+* it is model based which means you know the transition function,
+you know the probabilistic chances of actually executing an action when 
+you take it
+* first developed by Matlab then in R MDPtoolbox package
+
+## Reinforcement Learning package 
+
+* developed by Nicolas Proellochs
+* in contrast to MDPtoolbox RL package is model free
+* you don't know the transition probabilities
+* MDPtoolbox has been around much longer but it is not one hundred
+percent dedicated to RL type problems
+* Reinforcement Learning package was released on April 17 2017 and 
+is hundred percent dedicated to RL type problems
+* refer to the documentation for this package 
+* it has a lot of examples, datasets
+
+
+## Set up a simulated environment 
+
+* you have an agent
+* and you sample over and over again agents actions navigating thru this environment
+* which state they're in which state they move into what their reward is
+* and you do this a thousand times a ten thousand times 
+* you collect the cummulative rewards and from that you infer a policy which is an optimal policy 
+* which is the best action the agent can take moving out of any particular state into the next state
+
+## Framework for Reinforcement Learning
+
+* an agent interacts with environment 
+* generally agent is a robot but it could also be a person
+* the robot will enter the environment in a particular state
+* the robot is in an environment, which say is a two-by-two grid and will take some actions and will move in to a new state  
+* and or will receive a reward for moving to that state
+* and so we're going to observe the agent interacting with the environment over and over and over again
+* we're going to observe which of the possible actions the agent randomly takes 
+* and what is the reward the agent receives
+* and that rewards is a signal of how well the agent is performing
+* and of course our goal is that we want to improve behaviour 
+* given this limited feedback reward signal we want to find the optimal policy for moving from state to state to maximise rewards
+
+
+**Goal is to improve behaviour given only this limited feedback**
+
+
+# non-MDP representation of Reinforcement Learning
+
+##Grid World policy solution using R
+
+State-Action-Reward
+
+Finding optimal policy
+
+Policy iteration using R
+
+Generating a Random MDP with R
+
+The ReinforcementLearning package is in github so we have to use devtools to install the package
+
+```{r eval=FALSE}
+#Install using devtools
+install.packages("devtools")
+
+# Download and install latest version from Github
+devtools::install_github("nproellochs/ReinforcementLearning")
+```
+
+
+```{r}
+# Load the package
+library(ReinforcementLearning)
+library(dplyr)
+```
+
+```{r eval=FALSE}
+# Load the exemplary environment (gridworld)
+?gridworldEnvironment
+```
+
+Description
+
+Function defines an environment for a 2x2 gridworld example. Here an agent is 
+intended to navigate from an arbitrary starting position to a goal position. 
+The grid is surrounded by a wall, which makes it impossible for the agent to 
+move off the grid. In addition, the agent faces a wall between s1 and s4. 
+If the agent reaches the goal position, it earns a reward of 10. 
+Crossing each square of the grid results in a negative reward of -1.
+
+Usage
+
+gridworldEnvironment(state, action)
+
+
+## The 2x2 grid
+
+We are going to sample experience from an agent that navigates from  a random starting position to a goal position in a 2 x 2 version of Grid World.
+
+The 2x2 grid has the below states
+
+![](C:/Users/shobha/Documents/R-ReinforcementLearning/Images/2by2GridStates.png)
+
+
+## The inbuilt grid environment for simulation
+
+```{r}
+#Note: to copy function code call without ()
+env = gridworldEnvironment
+print(env)
+```
+
+You can see the function models the environment. 
+* every possible action you can take
+* what the new state will be 
+* and every possible reward the agent will receive for moving from state to state
+
+
+## Define state and action sets
+
+```{r}
+states = c("s1", "s2", "s3", "s4")
+states
+
+actions = c("up", "down", "left", "right")
+actions
+```
+
+## Now let's sample the agents behaviour a thousand times
+
+Sample N = 1000 random sequences from the environment
+
+```{r eval=FALSE}
+# Data format must be (s,a,r,s_new) tuples as rows in a data frame
+
+?sampleExperience
+```
+
+Description
+
+Function generates sample experience in the form of state transition tuples.
+
+Usage
+
+sampleExperience(N, env, states, actions, 
+      actionSelection = 'random',
+      control = list(alpha = 0.1, gamma = 0.1, epsilon = 0.1),
+      model = NULL,
+  ...)
+  
+  
+
+```{r}
+data = sampleExperience(N = 1000,
+                        env = env,
+                        states = states,
+                        actions = actions)
+
+head(data)
+
+dim(data)
+
+s4_data = data %>% filter(NextState == state("s4"))
+
+dim(s4_data)
+
+head(s4_data)
+```
+
+## Performing Reinforcement Learning
+
+Define reinforcement learning parameters
+
+* alpha - The learning rate, set between 0 and 1.
+* gamma - discount, discounts the value of future rewards and weigh less heavily 
+* epsilon - balance between exploration and exploitation
+
+```{r}
+control = list(alpha = 0.1,
+               gamma = 0.5,
+               epsilon = 0.1)
+
+control
+```
+
+
+```{r eval=FALSE}
+# Perform reinforcement learning
+?ReinforcementLearning
+```
+
+
+Description
+
+Performs model-free reinforcement learning. 
+Requires input data in the form of sample sequences consisting of states, actions and rewards. 
+The result of the learning process is a state-action table and an optimal policy that defines the best possible action in each state.
+
+Usage
+
+ReinforcementLearning(data, s = "s", a = "a", r = "r", 
+s_new = "s_new",
+learningRule = "experienceReplay", iter = 1, 
+control = list(alpha = 0.1,
+gamma = 0.1, epsilon = 0.1), 
+verbose = F, model = NULL, ...)
+
+
+```{r eval=FALSE}
+model = ReinforcementLearning(data, 
+                              s = "State",
+                              a = "Action",
+                              r = "Reward",
+                              s_new = "NextState",
+                              control = control)
+
+saveRDS(model,"C:/Users/shobha/Documents/R-ReinforcementLearning/RdsObjects/gridWorld_RL_model.rds") 
+```
+
+```{r}
+ 
+gridWold_RL_model = readRDS("C:/Users/shobha/Documents/R-ReinforcementLearning/RdsObjects/gridWorld_RL_model.rds")
+
+print(gridWold_RL_model)
+```
+
+
+
+## Conclusion       
+
+For state s1 best action is down - it has the highest reward 0.76
+For state s2 best action is right - it has the highest reward 3.58
+For state s3 best action is up - it has the highest reward 9.13
+For state s4 best action is left - it has the highest reward -1.87
+
+And that is indicated by the best policy.
+
+
+
+
